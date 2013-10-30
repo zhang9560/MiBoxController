@@ -27,7 +27,11 @@ public class MyActivity extends Activity implements AdapterView.OnItemClickListe
 
         mAppList = (GridView)findViewById(R.id.applist);
         mAppList.setOnItemClickListener(this);
-        new GetAppListTask().execute();
+
+        mIP = getIntent().getStringExtra("ip");
+        if (mIP != null && mIP.length() > 0) {
+            new GetAppListTask().execute();
+        }
     }
 
     @Override
@@ -44,7 +48,7 @@ public class MyActivity extends Activity implements AdapterView.OnItemClickListe
             ArrayList<AppInfo> appList = new ArrayList<AppInfo>();
 
             try {
-                String response = RESTRequest.request("http://127.0.0.1:8080/applist");
+                String response = RESTRequest.request(String.format("http://%s:8080/applist", mIP));
                 JSONObject allApps = new JSONObject(response);
                 JSONArray jsonArray = allApps.getJSONArray("applications");
                 for (int i = 0; i < jsonArray.length(); i++) {
@@ -76,9 +80,11 @@ public class MyActivity extends Activity implements AdapterView.OnItemClickListe
 
         @Override
         protected Void doInBackground(AppInfo... appInfos) {
-            RESTRequest.request("http://127.0.0.1:8080/run?package=" + appInfos[0].packageName + "&class=" + appInfos[0].className);
+            RESTRequest.request(String.format("http://%s:8080/run?package=%s&class=%s", mIP, appInfos[0].packageName, appInfos[0].className));
             return null;
         }
     }
+
+    private String mIP;
     private GridView mAppList;
 }
