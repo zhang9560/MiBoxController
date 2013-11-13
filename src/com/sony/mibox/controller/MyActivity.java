@@ -1,6 +1,7 @@
 package com.sony.mibox.controller;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
@@ -39,6 +40,10 @@ public class MyActivity extends Activity implements AdapterView.OnItemClickListe
         AppInfo appInfo = (AppInfo)parent.getAdapter().getItem(postion);
         Log.d(TAG,  appInfo.packageName + "/" + appInfo.className);
         new RunApplicationTask().execute(appInfo);
+
+        Intent intent = new Intent(this, ControlActivity.class);
+        intent.putExtra("ip", mIP);
+        startActivity(intent);
     }
 
     private class GetAppListTask extends AsyncTask<Void, Void, List<AppInfo>> {
