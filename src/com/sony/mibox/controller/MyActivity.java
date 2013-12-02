@@ -1,6 +1,7 @@
 package com.sony.mibox.controller;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -53,6 +54,17 @@ public class MyActivity extends Activity implements AdapterView.OnItemClickListe
     private class GetAppListTask extends AsyncTask<Void, Void, List<AppInfo>> {
 
         @Override
+        protected void onPreExecute() {
+            if (mProgressDialog == null) {
+                mProgressDialog = new ProgressDialog(MyActivity.this);
+            }
+            mProgressDialog.setCancelable(false);
+            mProgressDialog.setCanceledOnTouchOutside(false);
+            mProgressDialog.setMessage("Wait while loading the applications...");
+            mProgressDialog.show();
+        }
+
+        @Override
         protected List<AppInfo> doInBackground(Void... voids) {
             ArrayList<AppInfo> appList = new ArrayList<AppInfo>();
 
@@ -90,7 +102,10 @@ public class MyActivity extends Activity implements AdapterView.OnItemClickListe
         @Override
         protected void onPostExecute(List<AppInfo> appList) {
             mAppList.setAdapter(new AppListAdapter(MyActivity.this, appList));
+            mProgressDialog.dismiss();
         }
+
+        private ProgressDialog mProgressDialog;
     }
 
     private class RunApplicationTask extends AsyncTask<AppInfo, Void, Void> {
