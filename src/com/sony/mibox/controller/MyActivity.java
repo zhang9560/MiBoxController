@@ -11,7 +11,11 @@ import android.widget.GridView;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.pixmob.httpclient.HttpClient;
+import org.pixmob.httpclient.HttpClientException;
+import org.pixmob.httpclient.HttpResponse;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,9 +56,13 @@ public class MyActivity extends Activity implements AdapterView.OnItemClickListe
         protected List<AppInfo> doInBackground(Void... voids) {
             ArrayList<AppInfo> appList = new ArrayList<AppInfo>();
 
+            HttpClient hc = new HttpClient(MyActivity.this);
             try {
-                String response = RESTRequest.request(String.format("http://%s:8080/applist", mIP));
-                JSONObject allApps = new JSONObject(response);
+                final HttpResponse response = hc.get(String.format("http://%s:8080/applist", mIP)).execute();
+                final StringBuilder buf = new StringBuilder();
+                response.read(buf);
+
+                JSONObject allApps = new JSONObject(buf.toString());
                 JSONArray jsonArray = allApps.getJSONArray("applications");
                 for (int i = 0; i < jsonArray.length(); i++) {
                     AppInfo appInfo = new AppInfo();
@@ -68,6 +76,10 @@ public class MyActivity extends Activity implements AdapterView.OnItemClickListe
 
                     appList.add(appInfo);
                 }
+            } catch (HttpClientException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
             } catch (JSONException e) {
                 e.printStackTrace();
             }
@@ -85,7 +97,12 @@ public class MyActivity extends Activity implements AdapterView.OnItemClickListe
 
         @Override
         protected Void doInBackground(AppInfo... appInfos) {
-            RESTRequest.request(String.format("http://%s:8080/run?package=%s&class=%s", mIP, appInfos[0].packageName, appInfos[0].className));
+            HttpClient hc = new HttpClient(MyActivity.this);
+            try {
+                final HttpResponse response = hc.get(String.format("http://%s:8080/run?package=%s&class=%s", mIP, appInfos[0].packageName, appInfos[0].className)).execute();
+            } catch (HttpClientException e) {
+                e.printStackTrace();
+            }
             return null;
         }
     }

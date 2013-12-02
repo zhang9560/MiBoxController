@@ -5,6 +5,9 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
+import org.pixmob.httpclient.HttpClient;
+import org.pixmob.httpclient.HttpClientException;
+import org.pixmob.httpclient.HttpResponse;
 
 public class ControlActivity extends Activity implements View.OnClickListener {
     public static final int KEY_UP = 103;
@@ -55,7 +58,12 @@ public class ControlActivity extends Activity implements View.OnClickListener {
     private class InjectKeyCodeTask extends AsyncTask<Integer, Void, Void> {
         @Override
         protected Void doInBackground(Integer... keycode) {
-            RESTRequest.request(String.format("http://%s:8080/injectkey?keycode=%d", mIP, keycode[0]));
+            HttpClient hc = new HttpClient(ControlActivity.this);
+            try {
+                final HttpResponse response = hc.get(String.format("http://%s:8080/injectkey?keycode=%d", mIP, keycode[0])).execute();
+            } catch (HttpClientException e) {
+                e.printStackTrace();
+            }
             return null;
         }
     }
