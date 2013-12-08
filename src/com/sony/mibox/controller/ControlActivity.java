@@ -3,11 +3,15 @@ package com.sony.mibox.controller;
 import android.app.Activity;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.view.View;
 import android.widget.Button;
 import org.pixmob.httpclient.HttpClient;
 import org.pixmob.httpclient.HttpClientException;
 import org.pixmob.httpclient.HttpResponse;
+
+import java.io.IOException;
 
 public class ControlActivity extends Activity implements View.OnClickListener {
     public static final int KEY_UP = 103;
@@ -23,6 +27,8 @@ public class ControlActivity extends Activity implements View.OnClickListener {
         setContentView(R.layout.controller);
 
         mIP = getIntent().getStringExtra("ip");
+        mPackageName = getIntent().getStringExtra("package");
+
         mBtnUp = (Button)findViewById(R.id.btn_up);
         mBtnDown = (Button)findViewById(R.id.btn_down);
         mBtnLeft = (Button)findViewById(R.id.btn_left);
@@ -36,6 +42,31 @@ public class ControlActivity extends Activity implements View.OnClickListener {
         mBtnRight.setOnClickListener(this);
         mBtnEnter.setOnClickListener(this);
         mBtnBack.setOnClickListener(this);
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                HttpClient hc = new HttpClient(ControlActivity.this);
+                try {
+                    while(!mStop) {
+                        HttpResponse response = hc.get(String.format("http://%s:8080/checkrunningstatus?package=%s", mIP, mPackageName)).execute();
+                        StringBuilder buffer = new StringBuilder();
+                        response.read(buffer);
+                        if (buffer.toString().equals("exited")){
+                            mHandler.sendEmptyMessage(0);
+                            break;
+                        }
+                        Thread.sleep(500);
+                    }
+                } catch (HttpClientException e) {
+                    e.printStackTrace();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
     }
 
     @Override
@@ -55,6 +86,12 @@ public class ControlActivity extends Activity implements View.OnClickListener {
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mStop = true;
+    }
+
     private class InjectKeyCodeTask extends AsyncTask<Integer, Void, Void> {
         @Override
         protected Void doInBackground(Integer... keycode) {
@@ -68,7 +105,16 @@ public class ControlActivity extends Activity implements View.OnClickListener {
         }
     }
 
+    private Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            finish();
+        }
+    };
+
+    private boolean mStop = false;
     private String mIP;
+    private String mPackageName;
     private Button mBtnUp;
     private Button mBtnDown;
     private Button mBtnLeft;

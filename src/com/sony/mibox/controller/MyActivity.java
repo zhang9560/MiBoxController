@@ -9,7 +9,6 @@ import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.GridView;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.pixmob.httpclient.HttpClient;
@@ -18,7 +17,6 @@ import org.pixmob.httpclient.HttpResponse;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
 
 public class MyActivity extends Activity implements AdapterView.OnItemClickListener {
     public static final String TAG = "MyActivity";
@@ -31,8 +29,8 @@ public class MyActivity extends Activity implements AdapterView.OnItemClickListe
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
 
-        mAppList = (GridView)findViewById(R.id.applist);
-        mAppList.setOnItemClickListener(this);
+        mAppListView = (GridView)findViewById(R.id.applist);
+        mAppListView.setOnItemClickListener(this);
 
         mIP = getIntent().getStringExtra("ip");
         if (mIP != null && mIP.length() > 0) {
@@ -45,48 +43,47 @@ public class MyActivity extends Activity implements AdapterView.OnItemClickListe
         AppInfo appInfo = (AppInfo)parent.getAdapter().getItem(postion);
         Log.d(TAG,  appInfo.packageName + "/" + appInfo.className);
         new RunApplicationTask().execute(appInfo);
-
-        Intent intent = new Intent(this, ControlActivity.class);
-        intent.putExtra("ip", mIP);
-        startActivity(intent);
     }
 
-    private class GetAppListTask extends AsyncTask<Void, Void, List<AppInfo>> {
+    private class GetAppListTask extends AsyncTask<Void, Integer, Void> {
 
         @Override
         protected void onPreExecute() {
-            if (mProgressDialog == null) {
-                mProgressDialog = new ProgressDialog(MyActivity.this);
-            }
+            mProgressDialog = new ProgressDialog(MyActivity.this);
             mProgressDialog.setCancelable(false);
             mProgressDialog.setCanceledOnTouchOutside(false);
             mProgressDialog.setMessage("Wait while loading the applications...");
             mProgressDialog.show();
+
+            mAdapter = new AppListAdapter(MyActivity.this, mAppList);
+            mAppListView.setAdapter(mAdapter);
         }
 
         @Override
-        protected List<AppInfo> doInBackground(Void... voids) {
-            ArrayList<AppInfo> appList = new ArrayList<AppInfo>();
-
+        protected Void doInBackground(Void... voids) {
             HttpClient hc = new HttpClient(MyActivity.this);
             try {
-                final HttpResponse response = hc.get(String.format("http://%s:8080/applist", mIP)).execute();
-                final StringBuilder buf = new StringBuilder();
+                HttpResponse response = hc.get(String.format("http://%s:8080/appnumber", mIP)).execute();
+                StringBuilder buf = new StringBuilder();
                 response.read(buf);
+                mAppNumber = Integer.valueOf(buf.toString());
 
-                JSONObject allApps = new JSONObject(buf.toString());
-                JSONArray jsonArray = allApps.getJSONArray("applications");
-                for (int i = 0; i < jsonArray.length(); i++) {
+                for (int i = 0; i < mAppNumber; i++) {
+                    HttpResponse appInfoResponse = hc.get(String.format("http://%s:8080/appinfo?index=%s", mIP, i)).execute();
+                    StringBuilder strAppInfo = new StringBuilder();
+                    appInfoResponse.read(strAppInfo);
+                    JSONObject jsonAppInfo = new JSONObject(strAppInfo.toString());
+
                     AppInfo appInfo = new AppInfo();
-                    JSONObject jsonObject = jsonArray.getJSONObject(i);
-                    appInfo.name = jsonObject.getString("name");
-                    appInfo.packageName = jsonObject.getString("package");
-                    appInfo.className = jsonObject.getString("class");
+                    appInfo.name = jsonAppInfo.getString("name");
+                    appInfo.packageName = jsonAppInfo.getString("package");
+                    appInfo.className = jsonAppInfo.getString("class");
 
-                    JSONObject icon = jsonObject.getJSONObject("icon");
+                    JSONObject icon = jsonAppInfo.getJSONObject("icon");
                     appInfo.icon = Utils.string2Image(icon.getString("content"), icon.getInt("width"), icon.getInt("height"));
 
-                    appList.add(appInfo);
+                    mAppList.add(appInfo);
+                    publishProgress(i);
                 }
             } catch (HttpClientException e) {
                 e.printStackTrace();
@@ -96,32 +93,48 @@ public class MyActivity extends Activity implements AdapterView.OnItemClickListe
                 e.printStackTrace();
             }
 
-            return appList;
+            return null;
         }
 
         @Override
-        protected void onPostExecute(List<AppInfo> appList) {
-            mAppList.setAdapter(new AppListAdapter(MyActivity.this, appList));
+        protected void onProgressUpdate(Integer... values) {
+            mAdapter.notifyDataSetChanged();
+            mProgressDialog.setMessage(String.format("Loading applications %d / %d", values[0] + 1, mAppNumber));
+        }
+
+        @Override
+        protected void onPostExecute(Void result) {
             mProgressDialog.dismiss();
         }
 
+        private int mAppNumber = 0;
+        private AppListAdapter mAdapter;
+        private ArrayList<AppInfo> mAppList = new ArrayList<AppInfo>();
         private ProgressDialog mProgressDialog;
     }
 
-    private class RunApplicationTask extends AsyncTask<AppInfo, Void, Void> {
+    private class RunApplicationTask extends AsyncTask<AppInfo, Void, String> {
 
         @Override
-        protected Void doInBackground(AppInfo... appInfos) {
+        protected String doInBackground(AppInfo... appInfos) {
             HttpClient hc = new HttpClient(MyActivity.this);
             try {
                 final HttpResponse response = hc.get(String.format("http://%s:8080/run?package=%s&class=%s", mIP, appInfos[0].packageName, appInfos[0].className)).execute();
             } catch (HttpClientException e) {
                 e.printStackTrace();
             }
-            return null;
+            return appInfos[0].packageName;
+        }
+
+        @Override
+        protected void onPostExecute(String packageName) {
+            Intent intent = new Intent(MyActivity.this, ControlActivity.class);
+            intent.putExtra("ip", mIP);
+            intent.putExtra("package", packageName);
+            startActivity(intent);
         }
     }
 
     private String mIP;
-    private GridView mAppList;
+    private GridView mAppListView;
 }
